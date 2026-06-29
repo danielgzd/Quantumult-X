@@ -1,10 +1,10 @@
 
 /**
- * @fileoverview Example to compose HTTP reqeuest
+ * @fileoverview Example to compose HTTP request
  * and handle the response with customized params, including customized script engine timeout.
  * 
  * The plain (not encoded) hash tag (#) of the url is just a client-side thing, the hash tag and the rest after the hash tag will never be sent to the server.
- * Basically, it can be used to describe the script params in Quantumult X, just like the hash tag used in the url of browsers (Chrome, Firefox, Safari etc.) to describe the position of the page (it's a client-side thing).
+ * Basically, it can be used to describe the script environment variables in Quantumult X, just like the hash tag used in the url of browsers (Chrome, Firefox, Safari etc.) to describe the position of the page (it's a client-side thing). This feature is supported by all scripts (rewrite, task etc.) loaded from an http(s) path.
  *
  * [task_local]
  * 0 0 * * * https://raw.githubusercontent.com/crossutility/Quantumult-X/master/sample-task.js#force-timeout=10000&method=POST, tag=Sample, img-url=https://raw.githubusercontent.com/crossutility/Quantumult-X/master/quantumult-x.png, enabled=true
@@ -13,29 +13,12 @@
  */
 
 
-const sourcePath = $environment.sourcePath; // The value of $environment.sourcePath is available for task and rewrite script since v1.0.25.
-console.log(sourcePath); // https://raw.githubusercontent.com/crossutility/Quantumult-X/master/sample-task.js#force-timeout=10000&method=POST
-console.log('\n\n');
-
-const sourceUrl = new URL(sourcePath);
-const sourceHash = sourceUrl.hash;
-console.log(sourceHash); // #force-timeout=10000&method=POST
-console.log('\n\n');
-
-// Get script params.
-const scriptParams = new URLSearchParams(sourceHash.substring(1));
-for (const [key, value] of scriptParams.entries()) {
-    console.log(`${key}, ${value}`);
-    // force-timeout, 10000
-    // method, POST
-}
-console.log('\n\n');
+// $environment.variables is supported since v1.5.6 build 918.
+const args = $environment.variables; // { "force-timeout": "10000", "method": "POST" }
 
 // Script engine timeout, unit: ms.
-if (scriptParams.has("force-timeout")) {
-    const forceTimeout = scriptParams.get("force-timeout");
-    console.log(forceTimeout);
-    console.log('\n');
+if (args["force-timeout"] !== undefined) {
+    const forceTimeout = args["force-timeout"];
     setTimeout(() => {
         console.log("Force exit for " + forceTimeout + " ms timeout.");
         $done();
@@ -44,10 +27,8 @@ if (scriptParams.has("force-timeout")) {
 
 // HTTP request method.
 var method = "GET";
-if (scriptParams.has("method")) {
-    method = scriptParams.get("method");
-    console.log(method);
-    console.log('\n');
+if (args["method"] !== undefined) {
+    method = args["method"];
 }
 
 // Compose HTTP request.
@@ -61,8 +42,10 @@ const myRequest = {
     headers: headers, // Optional.
     body: JSON.stringify(data), // Optional.
     opts: {
-        redirection: false
-    } // Optional, default true to auto redirect.
+        'redirection': true, // default true, supported since build 210; older builds ignore this field and always follow redirects (effectively true)
+        'skip-cert-verify': false, // default false, supported since build 649; older builds ignore this field and always verify the certificate (effectively false)
+        'auto-cookie': false // default false, supported since build 934; older builds ignore this field and always enable the automatic cookie jar (effectively true)
+    } // The "opts" is optional.
 };
 
 $task.fetch(myRequest).then(response => {
